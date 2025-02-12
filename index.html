@@ -1,0 +1,485 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<title>Orthodontic Treatment Planning Software (Metallic Brackets)</title>
+<style>
+    body { font-family: sans-serif; }
+    #inputs, #results { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 5px; }
+    input[type="number"], select { width: 100px; padding: 5px; }
+    button { padding: 10px 15px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+    #results { border: 1px solid #ddd; padding: 10px; }
+    .error { color: red; }
+    .tooth-input { margin-bottom: 15px; padding: 10px; border: 1px solid #eee; }
+    #patientInfo { margin-bottom: 15px; padding: 10px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h1>Orthodontic Treatment Planning Software (Metallic Brackets)</h1>
+
+<div id="patientInfo">
+    <h2>Patient Information</h2>
+    <label for="patientAge">Age:</label>
+    <input type="number" id="patientAge" min="0"><br>
+
+    <label for="patientGender">Gender:</label>
+    <select id="patientGender">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="other">Other</option>
+    </select><br>
+
+    <label for="patientBoneDensity">Bone Density (Estimated):</label>
+    <select id="patientBoneDensity">
+        <option value="low">Low</option>
+        <option value="average">Average</option>
+        <option value="high">High</option>
+    </select><br>
+</div>
+
+<div id="inputs">
+    <p>Enter details for each affected tooth. All measurements are in millimeters and degrees.</p>
+
+    <div id="toothInputs"></div>
+
+    <button id="addTooth">Add Tooth</button>
+    <button id="calculate">Generate Treatment Plan</button>
+</div>
+
+<div id="results">
+    <h2>Treatment Plan:</h2>
+    <p><strong>Total Estimated Treatment Time:</strong> <span id="totalTreatmentTime"></span></p>
+    <p><strong>Recommended Appointment Interval:</strong> <span id="appointmentInterval"></span></p>
+    <p><strong>Force Application Recommendations:</strong></p>
+    <ul id="forceRecommendations"></ul>
+    <p id="errorMessages"></p>
+</div>
+<div id="feedback">
+    <h2>Feedback</h2>
+    <p>Was the estimated treatment time:</p>
+    <button id="tooShort">Too Short</button>
+    <button id="aboutRight">About Right</button>
+    <button id="tooLong">Too Long</button>
+    <p id="feedbackMessage"></p>
+</div>
+
+<script>
+    const toothTypes = {
+        "11": "Maxillary Right Central Incisor", "12": "Maxillary Right Lateral Incisor", "13": "Maxillary Right Canine",
+        "14": "Maxillary Right First Premolar", "15": "Maxillary Right Second Premolar", "16": "Maxillary Right First Molar",
+        "17": "Maxillary Right Second Molar", "18": "Maxillary Right Third Molar",
+        "21": "Maxillary Left Central Incisor", "22": "Maxillary Left Lateral Incisor", "23": "Maxillary Left Canine",
+        "24": "Maxillary Left First Premolar", "25": "Maxillary Left Second Premolar", "26": "Maxillary Left First Molar",
+        "27": "Maxillary Left Second Molar", "28": "Maxillary Left Third Molar",
+        "31": "Mandibular Left Central Incisor", "32": "Mandibular Left Lateral Incisor", "33": "Mandibular Left Canine",
+        "34": "Mandibular Left First Premolar", "35": "Mandibular Left Second Premolar", "36": "Mandibular Left First Molar",
+        "37": "Mandibular Left Second Molar", "38": "Mandibular Left Third Molar",
+        "41": "Mandibular Right Central Incisor", "42": "Mandibular Right Lateral Incisor", "43": "Mandibular Right Canine",
+        "44": "Mandibular Right First Premolar", "45": "Mandibular Right Second Premolar", "46": "Mandibular Right First Molar",
+        "47": "Mandibular Right Second Molar", "48": "Mandibular Right Third Molar"
+    };
+
+      const displacementTypes = {
+        "Mesial": { description: "Mesial Drift" },
+        "Distal": { description: "Distal Drift" },
+        "Buccal": { description: "Buccal Displacement" },
+        "Lingual": { description: "Lingual Displacement" },
+        "Extrusion": { description: "Overeruption" },
+        "Intrusion": { description: "Impaction/Submergence"},
+        "Rotation (Mesiobuccal)": {description: "Mesiobuccal Rotation"},
+        "Rotation (Distobuccal)": {description: "Distobuccal Rotation"},
+        "Rotation (Mesiolingual)" : {description: "Mesiolingual Rotation"},
+        "Rotation (Distolingual)" : {description: "Distolingual Rotation"}
+
+    };
+
+    let toothCount = 0;
+    const addToothButton = document.getElementById('addTooth');
+    const calculateButton = document.getElementById('calculate');
+    const toothInputsContainer = document.getElementById('toothInputs');
+    const totalTreatmentTimeDisplay = document.getElementById('totalTreatmentTime');
+    const appointmentIntervalDisplay = document.getElementById('appointmentInterval');
+    const forceRecommendationsList = document.getElementById('forceRecommendations');
+    const patientAgeInput = document.getElementById('patientAge');
+    const patientGenderInput = document.getElementById('patientGender');
+    const errorMessagesDisplay = document.getElementById("errorMessages");
+    const tooShortButton = document.getElementById('tooShort');
+    const aboutRightButton = document.getElementById('aboutRight');
+    const tooLongButton = document.getElementById('tooLong');
+    const feedbackMessage = document.getElementById("feedbackMessage");
+
+     // Load from localStorage, or use 0.8 as default
+    let baseMovementRate = parseFloat(localStorage.getItem('baseMovementRate')) || 0.8;
+
+
+    // Fuzzy Logic Functions
+   function fuzzyAge(age) {
+            let young = 0, youngAdult = 0, adult = 0, middleAge = 0, older = 0;
+
+            if (age <= 12) {
+                young = 1;
+            } else if (age > 12 && age <= 18) {
+                young = (18 - age) / 6;
+            } else if (age > 18 && age <20) {
+                young = 0;
+                youngAdult = (age-18) / 2;
+            }
+            else if (age >= 20 && age <= 25)
+            {
+                youngAdult = 1;
+            }
+            else if(age > 25 && age <= 35) {
+               youngAdult = (35 - age) / 10
+               adult = (age-25)/10
+            } // ... (continue for other age groups, overlapping ranges) ...
+              else {
+                older = 1;
+            }
+
+            return { young, youngAdult, adult, middleAge, older };
+        }
+
+    function fuzzyDisplacement(displacement) {
+        let small = 0, medium = 0, large = 0;
+
+         if (displacement <= 1) {
+             small = 1;
+         } else if (displacement > 1 && displacement <= 3) {
+             small = (3 - displacement) / 2;
+             medium = (displacement - 1) / 2;
+         } else if (displacement > 3 && displacement <= 6) {
+             medium = (6 - displacement) / 3;
+             large = (displacement - 3) / 3;
+         } else {
+             large = 1;
+         }
+
+        return { small, medium, large };
+    }
+
+    function fuzzyRotation(angle) {
+    let small = 0, medium = 0, large = 0;
+
+    if (angle <= 10) {
+        small = 1;
+    } else if (angle > 10 && angle <= 25) {
+        small = (25 - angle) / 15;
+        medium = (angle - 10) / 15;
+    } else if (angle > 25 && angle <= 45) {
+        medium = (45 - angle) / 20;
+        large = (angle - 25) / 20;
+    } else {
+        large = 1;
+    }
+
+    return { small, medium, large };
+}
+
+    function addToothInput() {
+         toothCount++;
+         const toothDiv = document.createElement('div');
+         toothDiv.classList.add('tooth-input');
+         toothDiv.innerHTML = `
+             <h3>Tooth ${toothCount}</h3>
+             <label for="toothNumber${toothCount}">Tooth Number (FDI):</label>
+             <select id="toothNumber${toothCount}">
+                 ${Object.entries(toothTypes).map(([key, value]) => `<option value="${key}">${key} - ${value}</option>`).join('')}
+             </select><br>
+
+             <label for="displacementType${toothCount}">Displacement Type:</label>
+             <select id="displacementType${toothCount}">
+                 ${Object.keys(displacementTypes).map(type => `<option value="${type}">${displacementTypes[type].description}</option>`).join('')}
+             </select><br>
+
+             <label for="displacement${toothCount}">Displacement (mm):</label>
+             <input type="number" id="displacement${toothCount}" min="0" step="0.1"><br>
+
+             <label for="angle${toothCount}">Angle (degrees):</label>
+             <input type="number" id="angle${toothCount}" min="0" step="0.1"><br>
+             <hr>
+         `;
+         toothInputsContainer.appendChild(toothDiv);
+     }
+    //Initial call
+    addToothButton.addEventListener('click', addToothInput);
+
+    function calculateTreatmentTime(toothType, displacementType, displacement, angle, patientAge, patientGender, boneDensity) {
+
+        let currentBaseMovementRate = baseMovementRate;
+
+        // Fuzzy Age Adjustments
+        const ageFactors = fuzzyAge(patientAge);
+        currentBaseMovementRate *= (1 + (ageFactors.young * 0.2) + (ageFactors.adult * 0) - (ageFactors.older * 0.1)); // Weighted average
+
+        // Gender Adjustment
+        if (patientGender === 'female' && patientAge > 50) {
+              currentBaseMovementRate *= (1 - 0.05);
+        }
+
+          // Bone Density Adjustment
+        switch (boneDensity) {
+            case "low":
+                currentBaseMovementRate *= 0.85; // Slower movement in low-density bone
+                break;
+            case "average":
+                // No change
+                break;
+            case "high":
+                currentBaseMovementRate *= 1.1; // Potentially faster movement in high-density bone
+                break;
+        }
+
+
+        // Fuzzy Displacement Adjustments
+        const displacementFactors = fuzzyDisplacement(displacement);
+        let displacementAdjustment = (displacementFactors.small * 1) + (displacementFactors.medium * 1.1) + (displacementFactors.large * 1.3);
+
+        let timeInMonths = 0;
+        let adjustmentFactor = 1.0;
+
+         // Adjust movement rate based on tooth type
+         if (["16", "17", "26", "27", "36", "37", "46", "47"].includes(toothType)) { // Molars
+          adjustmentFactor *= 1.2;
+         } else if (["13", "23", "33", "43"].includes(toothType)) { // Canines
+          adjustmentFactor *= 1.1;
+         }
+           if (["11", "12", "13", "14", "15", "16", "17", "18", "21", "22", "23", "24", "25", "26", "27", "28"].includes(toothType)) {
+            // Maxillary teeth - potentially faster
+            adjustmentFactor *= 0.95; // Example: 5% faster
+        } else {
+            // Mandibular teeth
+            adjustmentFactor *= 1.05; // Example: 5% slower
+        }
+
+        // --- Additional Rules ---
+        if (displacementType === "Intrusion" && patientAge > 30) {
+            adjustmentFactor *= 1.2; // Intrusion is even slower in older adults
+        }
+
+        if (toothType === "18" || toothType === "28" || toothType === "38" || toothType === "48") {
+            // Wisdom teeth - add extra time for potential complications
+            adjustmentFactor *= 1.3;
+        }
+
+        let toothAccuracyFactor = 1.0; // Factor to account for research-based accuracy
+
+          //Adjust displacement based on its type.
+        switch (displacementType) {
+            case "Mesial":
+            case "Distal":
+                // Use Tip accuracy values:
+                if (["18", "28", "38", "48"].includes(toothType)) {
+                    toothAccuracyFactor *= 0.73; // Estimate for second molars (average of 70 and 75)
+                } else if (["16", "17", "26", "27", "36", "37", "46", "47"].includes(toothType)) {
+                    toothAccuracyFactor *= 0.89; //Average for molar 84,94
+                }
+
+                else {
+                    toothAccuracyFactor *= 0.89; // Average of 84-94% for others
+                }
+                timeInMonths = (displacement / currentBaseMovementRate) * adjustmentFactor * toothAccuracyFactor;
+                break;
+            case "Buccal":
+            case "Lingual":
+                //Use Torque accuracy values:
+                if (toothType === "16") {
+                    toothAccuracyFactor *= 0.60;
+                } else if (toothType === "17") {
+                    toothAccuracyFactor *= 0.52;
+                } else if (toothType === "26") {
+                     toothAccuracyFactor *= 0.60;
+                }
+                else if (toothType === "27") {
+                     toothAccuracyFactor *= 0.52;
+                } else if (toothType === "36") {
+                    toothAccuracyFactor *= 0.81;
+                } else if (toothType === "37") {
+                    toothAccuracyFactor *= 0.75;
+                }
+                 else if (toothType === "46") {
+                    toothAccuracyFactor *= 0.81;
+                }
+                 else if (toothType === "47") {
+                    toothAccuracyFactor *= 0.75;
+                }
+                else {
+                    toothAccuracyFactor *= 0.88; // Average of 85-92
+                }
+                timeInMonths = (displacement / (currentBaseMovementRate * 0.9)) * adjustmentFactor * toothAccuracyFactor;
+                break;
+
+            case "Extrusion":
+            case "Intrusion":
+                 if (["18", "28", "38", "48"].includes(toothType)) {
+                    toothAccuracyFactor *= 0.73; // Estimate for second molars (average of 70 and 75)
+                } else if (["16", "17", "26", "27", "36", "37", "46", "47"].includes(toothType)) {
+                    toothAccuracyFactor *= 0.89; //Average for molar 84,94
+                }
+
+                else {
+                    toothAccuracyFactor *= 0.89; // Average of 84-94% for others
+                }
+                timeInMonths = (displacement / (currentBaseMovementRate * 0.7)) * adjustmentFactor * toothAccuracyFactor; // Keep your existing factor
+                break;
+
+                case "Rotation (Mesiobuccal)": // ... and other rotation types
+              // Use Rotation Accuracy:
+               if (["18", "28", "38", "48"].includes(toothType)) {
+                    toothAccuracyFactor *= 0.65; // Estimate, take midpoint of 57 and 72
+                } else if (["16", "17", "26", "27", "36", "37", "46", "47"].includes(toothType)) {
+                    toothAccuracyFactor *= 0.77; //Average for molar 87,57
+                }
+
+                else {
+                    toothAccuracyFactor *= 0.89; // Average of 85-93% for others
+                }
+
+                const rotationFactors = fuzzyRotation(angle); // USE FUZZY ROTATION
+                let rotationAdjustment = (rotationFactors.small * 0.1) + (rotationFactors.medium * 0.05) + (rotationFactors.large * 0.025); // Example values - tune
+                timeInMonths = (angle * rotationAdjustment) * adjustmentFactor * toothAccuracyFactor;
+                break;
+        }
+
+        //Transverse check
+        if ((displacementType ==="Buccal" || displacementType === "Lingual") && (["17", "27", "37", "47"].includes(toothType)) ){
+            timeInMonths *= 1.5; //Increase time by 50% if expansion is needed in second molar --TUNE THIS
+        }
+
+        return timeInMonths;
+    }
+
+    function calculateForceRatio(displacementType, displacement, angle) {
+        let forceResult = { minForce: null, maxForce: null, minTorque: null, maxTorque: null };
+
+        switch (displacementType) {
+            case "Mesial":
+            case "Distal":
+            case "Buccal":
+            case "Lingual":
+                const k_linear_min = 0.4; // Example: Minimum force constant
+                const k_linear_max = 0.6; // Example: Maximum force constant
+                forceResult.minForce = (k_linear_min * displacement).toFixed(2);
+                forceResult.maxForce = (k_linear_max * displacement).toFixed(2);
+                break;
+            case "Extrusion":
+            case "Intrusion":
+                const k_vertical_min = 0.6;
+                const k_vertical_max = 0.8;
+                forceResult.minForce = (k_vertical_min * displacement).toFixed(2);
+                forceResult.maxForce = (k_vertical_max * displacement).toFixed(2);
+                break;
+            case "Rotation (Mesiobuccal)":
+            case "Rotation (Distobuccal)":
+            case "Rotation (Mesiolingual)":
+            case "Rotation (Distolingual)":
+                const k_torque_min = 0.15;
+                const k_torque_max = 0.25;
+                forceResult.minTorque = (k_torque_min * angle).toFixed(2);
+                forceResult.maxTorque = (k_torque_max * angle).toFixed(2);
+                break;
+        }
+
+        return forceResult;
+    }
+
+    //Event Listneres
+    tooShortButton.addEventListener('click', () => {
+        baseMovementRate -= 0.05; // Decrease the rate slightly
+        localStorage.setItem('baseMovementRate', baseMovementRate); // Save to local storage
+        feedbackMessage.textContent = `Base movement rate adjusted to ${baseMovementRate.toFixed(2)}. Recalculate for updated estimate.`;
+        //Ideally re-run calculation
+        calculateButton.click();
+    });
+
+    aboutRightButton.addEventListener('click', () => {
+        feedbackMessage.textContent = "Thank you for your feedback!";
+    });
+
+    tooLongButton.addEventListener('click', () => {
+        baseMovementRate += 0.05;  // Increase the rate slightly
+        localStorage.setItem('baseMovementRate', baseMovementRate); // Save to local storage
+        feedbackMessage.textContent = `Base movement rate adjusted to ${baseMovementRate.toFixed(2)}. Recalculate for updated estimate.`;
+        //Ideally re-run calculation
+        calculateButton.click();
+    });
+
+    calculateButton.addEventListener('click', () => {
+        errorMessagesDisplay.innerHTML = "";
+        forceRecommendationsList.innerHTML = "";
+
+        const patientAge = parseInt(patientAgeInput.value);
+        const patientGender = patientGenderInput.value;
+        const boneDensity = document.getElementById('patientBoneDensity').value;
+
+        //Patient Age Validation
+        if (isNaN(patientAge) || patientAge < 0) {
+            errorMessagesDisplay.innerHTML = "<p class='error'>Please enter a valid patient age.</p>";
+            return;
+        }
+
+        let totalTreatmentMonths = 0;
+        let maxTreatmentMonths = 0;
+        let errorMessages = [];
+
+        for (let i = 1; i <= toothCount; i++) {
+            const toothNumber = document.getElementById(`toothNumber${i}`).value;
+            const displacementType = document.getElementById(`displacementType${i}`).value;
+            const displacement = parseFloat(document.getElementById(`displacement${i}`).value);
+            const angle = parseFloat(document.getElementById(`angle${i}`).value);
+
+            // --- Validation ---
+            if (isNaN(displacement) || displacement < 0) {
+                errorMessages.push(`Tooth ${i}: Displacement must be a non-negative number.`);
+            }
+            if (isNaN(angle) || angle < 0) {
+                errorMessages.push(`Tooth ${i}: Angle must be a non-negative number.`);
+            }
+
+            if (errorMessages.length > 0) {
+                errorMessagesDisplay.innerHTML = errorMessages.map(msg => `<p class="error">${msg}</p>`).join('');
+                return; //Stop if there are any errors
+            }
+
+            const toothTreatmentMonths = calculateTreatmentTime(toothNumber, displacementType, displacement, angle, patientAge, patientGender, boneDensity); //Pass all values
+            totalTreatmentMonths += toothTreatmentMonths;
+            maxTreatmentMonths = Math.max(maxTreatmentMonths, toothTreatmentMonths);
+
+            // Force Recommendations
+            const forceResult = calculateForceRatio(displacementType, displacement, angle);
+            const listItem = document.createElement('li');
+
+            if (forceResult.minForce !== null) {
+                listItem.textContent = `Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Force: ${forceResult.minForce} N - ${forceResult.maxForce} N`;
+            } else if (forceResult.minTorque !== null) {
+                listItem.textContent = `Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Torque: ${forceResult.minTorque} Nmm - ${forceResult.maxTorque} Nmm`;
+            } else {
+                listItem.textContent = `Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Force: N/A`;
+            }
+
+            forceRecommendationsList.appendChild(listItem);
+        }
+
+        // Calculate total treatment time (in months, then convert to years and months)
+        const totalTreatmentYears = Math.floor(maxTreatmentMonths / 12); //Use max for total
+        const remainingMonths = Math.round(maxTreatmentMonths % 12);
+        totalTreatmentTimeDisplay.textContent = `${totalTreatmentYears} years and ${remainingMonths} months`;
+
+        // Appointment Interval (based on the tooth requiring the longest treatment)
+        let appointmentIntervalWeeks = 4; // Default
+        if (maxTreatmentMonths > 6) {
+            appointmentIntervalWeeks = 6;
+        }
+        if (maxTreatmentMonths > 12) {
+            appointmentIntervalWeeks = 8;
+        }
+        appointmentIntervalDisplay.textContent = `${appointmentIntervalWeeks} weeks`;
+    });
+
+    // Initial tooth input
+    addToothInput();
+</script>
+
+</body>
+</html>
