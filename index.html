@@ -1,7 +1,8 @@
+```html
 <!DOCTYPE html>
 <html>
 <head>
-<title>Orthodontic Treatment Planning Software</title>
+<title>AI expert system for planning orthodontic treatment</title>
 <style>
     /* General Styles */
     body {
@@ -129,10 +130,10 @@
     @media (max-width: 600px) {
         #inputs, #results, #feedback, #patientInfo{
             padding: 10px;
-            margin: 10px;  /Less margin for small screens/
+            margin: 10px;  /*Less margin for small screens*/
         }
         input[type="number"], select, button {
-            width: 100%;  /Full-width/
+            width: 100%;  /*Full-width*/
             margin-bottom: 10px;
         }
     }
@@ -141,7 +142,7 @@
 </head>
 <body>
 
-<h1>AI Expert System for Planning Orthodontic Treatment</h1>
+<h1>AI expert system for planning orthodontic treatment</h1>
 
 <div id="patientInfo">
     <h2>Patient Information</h2>
@@ -310,12 +311,12 @@
              <h3>Tooth ${toothCount}</h3>
              <label for="toothNumber${toothCount}">Tooth Number (FDI):</label>
              <select id="toothNumber${toothCount}">
-                 ${Object.entries(toothTypes).map(([key, value]) => <option value="${key}">${key} - ${value}</option>).join('')}
+                 ${Object.entries(toothTypes).map(([key, value]) => `<option value="${key}">${key} - ${value}</option>`).join('')}
              </select><br>
 
              <label for="displacementType${toothCount}">Displacement Type:</label>
              <select id="displacementType${toothCount}">
-                 ${Object.keys(displacementTypes).map(type => <option value="${type}">${displacementTypes[type].description}</option>).join('')}
+                 ${Object.keys(displacementTypes).map(type => `<option value="${type}">${displacementTypes[type].description}</option>`).join('')}
              </select><br>
 
              <label for="displacement${toothCount}">Displacement (mm):</label>
@@ -389,6 +390,10 @@ const displacementFactors = fuzzyDisplacement(displacement);
 
         let toothAccuracyFactor = 1.0; // Factor to account for research-based accuracy
 
+
+
+
+        
         //Adjust displacement based on its type.
         switch (displacementType) {
             case "Mesial":
@@ -445,6 +450,9 @@ const displacementFactors = fuzzyDisplacement(displacement);
                 break;
         }
 
+
+
+
         //Transverse check (Buccal/Lingual on Second Molars)
         if ((displacementType === "Buccal" || displacementType === "Lingual") && (["17", "27", "37", "47"].includes(toothType))) {
             timeInMonths *= 1.5; //Increase time by 50% if expansion is needed in second molar
@@ -484,24 +492,36 @@ const displacementFactors = fuzzyDisplacement(displacement);
         return forceResult;
     }
 
+
+
+
     // Event Listeners
     tooShortButton.addEventListener('click', () => {
         baseMovementRate -= 0.05;
         localStorage.setItem('baseMovementRate', baseMovementRate);
-        feedbackMessage.textContent = Base movement rate adjusted to ${baseMovementRate.toFixed(2)}. Recalculate for updated estimate.;
+        feedbackMessage.textContent = `Base movement rate adjusted to ${baseMovementRate.toFixed(2)}. Recalculate for updated estimate.`;
         calculateButton.click(); // Re-run calculation
     });
+
+
+
 
     aboutRightButton.addEventListener('click', () => {
         feedbackMessage.textContent = "Thank you for your feedback!";
     });
 
+
+
+
+
     tooLongButton.addEventListener('click', () => {
         baseMovementRate += 0.05;
         localStorage.setItem('baseMovementRate', baseMovementRate);
-        feedbackMessage.textContent = Base movement rate adjusted to ${baseMovementRate.toFixed(2)}. Recalculate for updated estimate.;
+        feedbackMessage.textContent = `Base movement rate adjusted to ${baseMovementRate.toFixed(2)}. Recalculate for updated estimate.`;
         calculateButton.click(); // Re-run calculation
     });
+
+
 
 
     calculateButton.addEventListener('click', () => {
@@ -523,21 +543,21 @@ const displacementFactors = fuzzyDisplacement(displacement);
         let errorMessages = [];
 
         for (let i = 1; i <= toothCount; i++) {
-            const toothNumber = document.getElementById(toothNumber${i}).value;
-            const displacementType = document.getElementById(displacementType${i}).value;
-            const displacement = parseFloat(document.getElementById(displacement${i}).value);
-            const angle = parseFloat(document.getElementById(angle${i}).value);
+            const toothNumber = document.getElementById(`toothNumber${i}`).value;
+            const displacementType = document.getElementById(`displacementType${i}`).value;
+            const displacement = parseFloat(document.getElementById(`displacement${i}`).value);
+            const angle = parseFloat(document.getElementById(`angle${i}`).value);
 
             // --- Validation ---
             if (isNaN(displacement) || displacement < 0) {
-                errorMessages.push(Tooth ${i}: Displacement must be a non-negative number.);
+                errorMessages.push(`Tooth ${i}: Displacement must be a non-negative number.`);
             }
             if (isNaN(angle) || angle < 0) {
-                errorMessages.push(Tooth ${i}: Angle must be a non-negative number.);
+                errorMessages.push(`Tooth ${i}: Angle must be a non-negative number.`);
             }
 
             if (errorMessages.length > 0) {
-                errorMessagesDisplay.innerHTML = errorMessages.map(msg => <p class="error">${msg}</p>).join('');
+                errorMessagesDisplay.innerHTML = errorMessages.map(msg => `<p class="error">${msg}</p>`).join('');
                 return; // Stop if there are any errors
             }
 
@@ -550,11 +570,11 @@ const displacementFactors = fuzzyDisplacement(displacement);
             const listItem = document.createElement('li');
 
             if (forceResult.minForce !== null) {
-                listItem.textContent = Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Force: ${forceResult.minForce} N - ${forceResult.maxForce} N;
+                listItem.textContent = `Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Force: ${forceResult.minForce} N - ${forceResult.maxForce} N`;
             } else if (forceResult.minTorque !== null) {
-                listItem.textContent = Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Torque: ${forceResult.minTorque} Nmm - ${forceResult.maxTorque} Nmm;
+                listItem.textContent = `Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Torque: ${forceResult.minTorque} Nmm - ${forceResult.maxTorque} Nmm`;
             } else {
-                listItem.textContent = Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Force: N/A;
+                listItem.textContent = `Tooth ${toothNumber} (${toothTypes[toothNumber]}): ${displacementTypes[displacementType].description} - Force: N/A`;
             }
             forceRecommendationsList.appendChild(listItem);
         }
@@ -562,10 +582,10 @@ const displacementFactors = fuzzyDisplacement(displacement);
         // Calculate total treatment time (use maxTreatmentMonths)
         const totalTreatmentYears = Math.floor(maxTreatmentMonths / 12);
         const remainingMonths = Math.round(maxTreatmentMonths % 12);
-        totalTreatmentTimeDisplay.textContent = ${totalTreatmentYears} years and ${remainingMonths} months;
+        totalTreatmentTimeDisplay.textContent = `${totalTreatmentYears} years and ${remainingMonths} months`;
 
 
-        // Appointment Interval (based on the tooth requiring the longest treatment)
+        // Appointment Interval (based on the tooth requiring the *longest* treatment)
         let appointmentIntervalWeeks = 4; // Default
         if (maxTreatmentMonths > 6) {
             appointmentIntervalWeeks = 6;
@@ -573,7 +593,7 @@ const displacementFactors = fuzzyDisplacement(displacement);
         if (maxTreatmentMonths > 12) {
             appointmentIntervalWeeks = 8;
         }
-        appointmentIntervalDisplay.textContent = ${appointmentIntervalWeeks} weeks;
+        appointmentIntervalDisplay.textContent = `${appointmentIntervalWeeks} weeks`;
     });
 
     // Initial tooth input
